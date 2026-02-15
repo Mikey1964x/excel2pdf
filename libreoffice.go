@@ -44,5 +44,12 @@ func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string,
 		),
 	)
 
+	// open the generated PDF file and delete all but the first page. Then save
+	// the modified PDF file with the same name, overwriting the original PDF file.
+	if err := removeAllButFirstPage(pdfFilePath); err != nil {
+		slog.Error("remove all but first page", "error", err, "pdf_file_path", pdfFilePath)
+		return "", fmt.Errorf("failed to remove all but first page: %w", err)
+	}
+
 	return pdfFilePath, nil
 }

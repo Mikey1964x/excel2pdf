@@ -17,3 +17,11 @@ func ConvertExcelToPdf(excelFile string) (pdfFile string, err error) {
 	defer mutex.Unlock()
 	return convertExcelToPdf(excelFile)
 }
+
+func CombinePdfs(pdfFiles []string, outputPdfFile string) (pdfFile string, err error) {
+	if !mutex.TryLock() {
+		return "", ErrExcel2PdfIsProcessing
+	}
+	defer mutex.Unlock()
+	return combinePdfs(pdfFiles, outputPdfFile)
+}

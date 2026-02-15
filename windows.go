@@ -70,5 +70,13 @@ func convertExcelToPDFWithExcel(excelFilePath string) (pdfFilePath string, err e
 	if _, err := oleutil.CallMethod(workbook, "ExportAsFixedFormat", exportArgs...); err != nil {
 		return "", fmt.Errorf("failed to export as PDF: %w", err)
 	}
+
+	// open the generated PDF file and delete all but the first page. Then save
+	// the modified PDF file with the same name, overwriting the original PDF file.
+	if err := removeAllButFirstPage(pdfFilePath); err != nil {
+		slog.Error("remove all but first page", "error", err, "pdf_file_path", pdfFilePath)
+		return "", fmt.Errorf("failed to remove all but first page: %w", err)
+	}
+
 	return pdfFilePath, nil
 }
