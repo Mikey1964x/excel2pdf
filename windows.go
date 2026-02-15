@@ -6,13 +6,15 @@ package excel2pdf
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 )
 
-func convertExcelToPDFWithExcel(excelFilePath, pdfPath string) (pdfFilePath string, err error) {
+func convertExcelToPDFWithExcel(excelFilePath string) (pdfFilePath string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("convertExcelToPDF recovery", "recover", r)
@@ -52,18 +54,21 @@ func convertExcelToPDFWithExcel(excelFilePath, pdfPath string) (pdfFilePath stri
 		}
 	}()
 
-	// pdfFilePath = fmt.Sprintf("%s-%d.pdf",
-	// 	strings.TrimSuffix(
-	// 		filepath.Base(excelFilePath),
-	// 		filepath.Ext(excelFilePath),
-	// 	),
-	// 	time.Now().Unix(),
-	// )
-	// pdfFilePath = filepath.Join(os.TempDir(), pdfFilePath)
-	exportArgs := []interface{}{0, pdfPath}
+	const pdfSuffix = ".pdf"
+	pdfFilePath = filepath.Join(
+		filepath.Dir(excelFilePath),
+		fmt.Sprintf("%s%s",
+			strings.TrimSuffix(
+				filepath.Base(excelFilePath),
+				filepath.Ext(excelFilePath),
+			),
+			pdfSuffix,
+		),
+	)
 
+	exportArgs := []interface{}{0, pdfFilePath}
 	if _, err := oleutil.CallMethod(workbook, "ExportAsFixedFormat", exportArgs...); err != nil {
 		return "", fmt.Errorf("failed to export as PDF: %w", err)
 	}
-	return pdfPath, nil
+	return pdfFilePath, nil
 }

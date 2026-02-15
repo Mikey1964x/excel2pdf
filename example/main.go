@@ -7,8 +7,7 @@ import (
 )
 
 var excelPath = `C-1.xlsx`
-var pdfPath = `C-1.pdf`
 
 func main() {
-	fmt.Println(excel2pdf.ConvertExcelToPdf(excelPath, pdfPath))
+	fmt.Println(excel2pdf.ConvertExcelToPdf(excelPath))
 }

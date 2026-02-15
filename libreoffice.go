@@ -7,10 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
-func convertExcelToPDFWithLibreOffice(excelFilePath, pdfPath string) (pdfFilePath string, err error) {
+func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string, err error) {
 	libreOfficePath, err := findLibreOfficeBinPath()
 	if err != nil {
 		return "", err
@@ -18,9 +17,9 @@ func convertExcelToPDFWithLibreOffice(excelFilePath, pdfPath string) (pdfFilePat
 	cmd := exec.Command(
 		libreOfficePath,
 		"--headless",
-		"--convert-to",
-		"pdf", excelFilePath,
-		"--outdir", pdfPath,
+		"--convert-to", "pdf",
+		"--outdir", filepath.Dir(excelFilePath),
+		excelFilePath,
 	)
 
 	cmd.Stdout = os.Stdout
@@ -32,9 +31,10 @@ func convertExcelToPDFWithLibreOffice(excelFilePath, pdfPath string) (pdfFilePat
 	if cmd.Err != nil {
 		slog.Error("libreoffice command", "error", err, "libre_office_path", libreOfficePath)
 	}
+
 	const pdfSuffix = ".pdf"
-	var tmpPdfFilePath = filepath.Join(
-		os.TempDir(),
+	pdfFilePath = filepath.Join(
+		filepath.Dir(excelFilePath),
 		fmt.Sprintf("%s%s",
 			strings.TrimSuffix(
 				filepath.Base(excelFilePath),
@@ -44,14 +44,5 @@ func convertExcelToPDFWithLibreOffice(excelFilePath, pdfPath string) (pdfFilePat
 		),
 	)
 
-	pdfFilePath = fmt.Sprintf("%s-%d%s",
-		strings.TrimSuffix(tmpPdfFilePath, pdfSuffix),
-		time.Now().Unix(),
-		pdfSuffix,
-	)
-	if err := os.Rename(tmpPdfFilePath, pdfFilePath); err != nil {
-		slog.Error("renaming pdf file", "error", err, "old_path", tmpPdfFilePath, "new_path", pdfFilePath)
-		return tmpPdfFilePath, err
-	}
 	return pdfFilePath, nil
 }

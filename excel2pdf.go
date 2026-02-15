@@ -10,10 +10,10 @@ var (
 )
 var ErrExcel2PdfIsProcessing = errors.New("a process is currently running using the resource")
 
-func ConvertExcelToPdf(excelFile, pdfPath string) (pdfFile string, err error) {
+func ConvertExcelToPdf(excelFile string) (pdfFile string, err error) {
 	if !mutex.TryLock() {
 		return "", ErrExcel2PdfIsProcessing
 	}
 	defer mutex.Unlock()
-	return convertExcelToPdf(excelFile, pdfPath)
+	return convertExcelToPdf(excelFile)
 }
