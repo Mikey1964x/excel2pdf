@@ -57,7 +57,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error converting %s: %v\n", f.path, err)
 			os.Exit(1)
 		}
-		fmt.Printf("Converted: %s -> %s\n", f.path, pdfFile)
+		//fmt.Printf("Converted: %s -> %s\n", f.path, pdfFile)
 		pdfFiles = append(pdfFiles, pdfFile)
 	}
 
@@ -68,14 +68,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error combining PDFs: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Combined PDF: %s\n", outputPdf)
+	//fmt.Printf("Combined PDF: %s\n", outputPdf)
 
 	// Delete the individual C-*.pdf files
 	for _, pdfFile := range pdfFiles {
 		if err := os.Remove(pdfFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to delete %s: %v\n", pdfFile, err)
 		} else {
-			fmt.Printf("Deleted: %s\n", pdfFile)
+			//fmt.Printf("Deleted: %s\n", pdfFile)
 		}
 	}
 }
