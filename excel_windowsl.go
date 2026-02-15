@@ -16,7 +16,7 @@ func existExcel(names ...string) (bool, error) {
 	var keyPath = filepath.Join(append([]string{prefix}, names...)...)
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, keyPath, registry.READ)
 	if err != nil {
-		slog.Error(`opening registry.LOCAL_MACHINE`, "erorr", err, "key_path", keyPath)
+		slog.Error(`opening registry.LOCAL_MACHINE`, "error", err, "key_path", keyPath)
 		return false, err
 	}
 	subkeys, err := key.ReadSubKeyNames(-1)

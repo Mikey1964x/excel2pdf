@@ -32,7 +32,7 @@ func readLibreofficePath(names ...string) (string, error) {
 		if err == registry.ErrNotExist {
 			return "", nil
 		}
-		slog.Error(`opening registry.LOCAL_MACHINE`, "erorr", err, "key_path", keyPath)
+		slog.Error(`opening registry.LOCAL_MACHINE`, "error", err, "key_path", keyPath)
 		return "", err
 	}
 	path, ok, err := lookPath(key)

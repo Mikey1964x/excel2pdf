@@ -1,8 +1,8 @@
-module github.com/user0608/excel2pdf
+module github.com/Mikey1964x/excel2pdf
 
-go 1.22.5
+go 1.25.4
 
 require (
 	github.com/go-ole/go-ole v1.3.0
-	golang.org/x/sys v0.22.0
+	golang.org/x/sys v0.41.0
 )

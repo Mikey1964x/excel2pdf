@@ -10,27 +10,27 @@ import (
 	"time"
 )
 
-func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string, err error) {
-	pibreOfficePath, err := findLibreOfficeBinPath()
+func convertExcelToPDFWithLibreOffice(excelFilePath, pdfPath string) (pdfFilePath string, err error) {
+	libreOfficePath, err := findLibreOfficeBinPath()
 	if err != nil {
 		return "", err
 	}
 	cmd := exec.Command(
-		pibreOfficePath,
+		libreOfficePath,
 		"--headless",
 		"--convert-to",
 		"pdf", excelFilePath,
-		"--outdir", os.TempDir(),
+		"--outdir", pdfPath,
 	)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		slog.Error("libreoffice runing", "error", err, "libre_ofice_path", err)
+		slog.Error("libreoffice running", "error", err, "libre_office_path", libreOfficePath)
 		return "", fmt.Errorf("failed to convert file: %w", err)
 	}
 	if cmd.Err != nil {
-		slog.Error("libreoffice comand", "error", err, "libre_ofice_path", err)
+		slog.Error("libreoffice command", "error", err, "libre_office_path", libreOfficePath)
 	}
 	const pdfSuffix = ".pdf"
 	var tmpPdfFilePath = filepath.Join(
