@@ -14,6 +14,12 @@ func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string,
 	if err != nil {
 		return "", err
 	}
+	// make excelFilePath absolute path
+	excelFilePath, err = filepath.Abs(excelFilePath)
+	if err != nil {
+		slog.Error("get absolute path", "error", err, "excel_file_path", excelFilePath)
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
 	cmd := exec.Command(
 		libreOfficePath,
 		"--headless",
