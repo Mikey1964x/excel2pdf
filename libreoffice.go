@@ -20,13 +20,13 @@ func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string,
 		slog.Error("get absolute path", "error", err, "excel_file_path", excelFilePath)
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	cmd := exec.Command(
+	cmd := exec.Command( //nolint:gosec // G204: libreOfficePath is resolved internally via findLibreOfficeBinPath, not user input
 		libreOfficePath,
 		"--headless",
 		"--convert-to", "pdf",
 		"--outdir", filepath.Dir(excelFilePath),
 		excelFilePath,
-	)
+	) //#nosec G204
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

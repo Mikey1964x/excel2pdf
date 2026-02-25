@@ -1,6 +1,6 @@
 module github.com/Mikey1964x/excel2pdf
 
-go 1.25.4
+go 1.26.0
 
 require (
 	github.com/go-ole/go-ole v1.3.0
@@ -15,8 +15,8 @@ require (
 	github.com/hhrutter/tiff v1.0.2 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/image v0.32.0 // indirect
-	golang.org/x/text v0.30.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
