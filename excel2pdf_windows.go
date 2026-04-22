@@ -8,6 +8,8 @@ import (
 	"log/slog"
 )
 
+// ErrExcelOrLibreOfficeNotInstalled is returned on Windows when neither
+// Microsoft Excel nor LibreOffice can be found on the system.
 var ErrExcelOrLibreOfficeNotInstalled = errors.New("neither Microsoft Excel nor LibreOffice is installed on this system")
 
 func convertExcelToPdf(excelFile string) (pdfFile string, err error) {

@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+// lookPath reads the "Path" string value from a registry key and returns it.
+// Returns ok=false (without an error) if the value does not exist.
 func lookPath(key registry.Key) (string, bool, error) {
 	val, _, err := key.GetStringValue("Path")
 	if err != nil {
@@ -24,6 +26,11 @@ func lookPath(key registry.Key) (string, bool, error) {
 	return val, true, nil
 }
 
+// readLibreofficePath recursively searches the Windows registry under
+// SOFTWARE\LibreOffice\LibreOffice for a "Path" value that points to the
+// LibreOffice installation directory. names are path segments appended on each
+// recursive call. Returns an empty string (without an error) when LibreOffice
+// is not found.
 func readLibreofficePath(names ...string) (string, error) {
 	const prefix = `SOFTWARE\LibreOffice\LibreOffice`
 	var keyPath = filepath.Join(append([]string{prefix}, names...)...)
@@ -62,6 +69,13 @@ func readLibreofficePath(names ...string) (string, error) {
 	return "", nil
 }
 
+// findLibreOfficeBinPath returns the path to the LibreOffice binary on Windows.
+//
+// Resolution order:
+//  1. The LIBREOFFICE_PATH environment variable, if set.
+//  2. The installation path read from the Windows registry.
+//
+// Returns an empty string (without an error) when LibreOffice is not installed.
 func findLibreOfficeBinPath() (string, error) {
 	value, ok := os.LookupEnv("LIBREOFFICE_PATH")
 	if ok {

@@ -1,3 +1,13 @@
+// Command example demonstrates batch conversion of Excel files to a single PDF.
+//
+// Usage:
+//
+//	example <directory>
+//
+// It scans the given directory for files matching the pattern C-<integer>.xlsx,
+// converts each one to PDF in numeric order using [excel2pdf.ConvertExcelToPdf],
+// merges them into a single file named Timesheets.pdf using [excel2pdf.CombinePdfs],
+// and then deletes the intermediate per-file PDFs.
 package main
 
 import (

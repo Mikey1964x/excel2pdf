@@ -14,6 +14,13 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 )
 
+// convertExcelToPDFWithExcel converts excelFilePath to PDF using Microsoft
+// Excel via COM/OLE automation. The PDF is written to the same directory as
+// the source file and only the first page is retained. The path of the
+// generated PDF is returned.
+//
+// This function must run on a dedicated OS thread; it handles thread locking
+// and OLE initialisation internally.
 func convertExcelToPDFWithExcel(excelFilePath string) (pdfFilePath string, err error) {
 	defer func() {
 		if r := recover(); r != nil {

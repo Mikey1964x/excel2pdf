@@ -11,6 +11,10 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+// existExcel recursively searches the Windows registry under
+// SOFTWARE\Microsoft\Office for an "Excel" subkey, indicating that Microsoft
+// Excel is installed. names are the path segments appended to the base key on
+// each recursive call.
 func existExcel(names ...string) (bool, error) {
 	const prefix = `SOFTWARE\Microsoft\Office`
 	var keyPath = filepath.Join(append([]string{prefix}, names...)...)
@@ -45,4 +49,6 @@ func existExcel(names ...string) (bool, error) {
 	return false, nil
 }
 
+// isExcelInstalled reports whether Microsoft Excel is installed on the current
+// Windows machine by inspecting the registry.
 func isExcelInstalled() (bool, error) { return existExcel() }

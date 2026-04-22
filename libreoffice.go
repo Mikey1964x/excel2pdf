@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// convertExcelToPDFWithLibreOffice converts excelFilePath to PDF by invoking
+// LibreOffice in headless mode. The PDF is written to the same directory as
+// the source file and only the first page is retained. The path of the
+// generated PDF is returned.
 func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string, err error) {
 	libreOfficePath, err := findLibreOfficeBinPath()
 	if err != nil {
