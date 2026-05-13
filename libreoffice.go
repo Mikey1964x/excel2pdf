@@ -24,9 +24,28 @@ func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string,
 		slog.Error("get absolute path", "error", err, "excel_file_path", excelFilePath)
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
+
+	// Each concurrent LibreOffice process needs its own user profile directory.
+	// Without this, multiple headless instances will collide on the same lock
+	// file and fail to start.
+	profileDir, err := os.MkdirTemp("", "lo_profile_*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create libreoffice profile dir: %w", err)
+	}
+	defer os.RemoveAll(profileDir)
+
+	// Build a file:// URL from the profile path (works on Windows and Linux).
+	slashed := filepath.ToSlash(profileDir)
+	if !strings.HasPrefix(slashed, "/") {
+		slashed = "/" + slashed // Windows: C:/... → /C:/...
+	}
+	profileURL := "file://" + slashed
+
 	cmd := exec.Command( //nolint:gosec // G204: libreOfficePath is resolved internally via findLibreOfficeBinPath, not user input
 		libreOfficePath,
 		"--headless",
+		"--norestore",
+		"--env:UserInstallation="+profileURL,
 		"--convert-to", "pdf",
 		"--outdir", filepath.Dir(excelFilePath),
 		excelFilePath,

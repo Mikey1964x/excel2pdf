@@ -1,6 +1,6 @@
 module github.com/Mikey1964x/excel2pdf
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/go-ole/go-ole v1.3.0

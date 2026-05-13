@@ -29,6 +29,13 @@ func convertExcelToPDFWithExcel(excelFilePath string) (pdfFilePath string, err e
 	}()
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	// Excel COM requires an absolute path; resolve it before any OLE calls.
+	excelFilePath, err = filepath.Abs(excelFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
 	err = ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED|ole.COINIT_SPEED_OVER_MEMORY)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize OLE: %w", err)
