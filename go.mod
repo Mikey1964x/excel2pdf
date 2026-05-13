@@ -1,4 +1,4 @@
-module github.com/Mikey1964x/excel2pdf
+module github.com/Mikey1964x/excel2pdf/v2
 
 go 1.26.3
 
