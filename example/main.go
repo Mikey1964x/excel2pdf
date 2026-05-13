@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/Mikey1964x/excel2pdf"
+	"github.com/Mikey1964x/excel2pdf/v2"
 )
 
 func main() {
