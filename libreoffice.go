@@ -32,7 +32,11 @@ func convertExcelToPDFWithLibreOffice(excelFilePath string) (pdfFilePath string,
 	if err != nil {
 		return "", fmt.Errorf("failed to create libreoffice profile dir: %w", err)
 	}
-	defer os.RemoveAll(profileDir)
+	defer func() {
+		if err := os.RemoveAll(profileDir); err != nil {
+			slog.Warn("failed to remove libreoffice profile dir", "error", err, "dir", profileDir)
+		}
+	}()
 
 	// Build a file:// URL from the profile path (works on Windows and Linux).
 	slashed := filepath.ToSlash(profileDir)

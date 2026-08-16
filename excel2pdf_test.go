@@ -31,7 +31,11 @@ func TestConvertExcelToPdf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConvertExcelToPdf(%q) error: %v", input, err)
 	}
-	t.Cleanup(func() { os.Remove(pdfFile) })
+	t.Cleanup(func() {
+		if err := os.Remove(pdfFile); err != nil && !os.IsNotExist(err) {
+			t.Logf("cleanup: failed to remove %s: %v", pdfFile, err)
+		}
+	})
 
 	if !strings.HasSuffix(pdfFile, ".pdf") {
 		t.Errorf("expected .pdf suffix, got %q", pdfFile)

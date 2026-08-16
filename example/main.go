@@ -84,8 +84,6 @@ func main() {
 	for _, pdfFile := range pdfFiles {
 		if err := os.Remove(pdfFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to delete %s: %v\n", pdfFile, err)
-		} else {
-			//fmt.Printf("Deleted: %s\n", pdfFile)
 		}
 	}
 }
