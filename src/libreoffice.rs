@@ -109,14 +109,14 @@ fn which_cmd(name: &str) -> Option<PathBuf> {
 
 #[cfg(target_os = "windows")]
 pub fn find_libreoffice_bin() -> crate::Result<PathBuf> {
-    use std::env;
     use crate::windows::find_libreoffice_in_registry;
+    use std::env;
 
     if let Ok(val) = env::var("LIBREOFFICE_PATH") {
         return Ok(PathBuf::from(val));
     }
 
-    find_libreoffice_in_registry().map_err(|e| {
-        Excel2PdfError::ConversionFailed(format!("registry error: {}", e))
-    })?.ok_or(Excel2PdfError::LibreOfficeNotInstalled)
+    find_libreoffice_in_registry()
+        .map_err(|e| Excel2PdfError::ConversionFailed(format!("registry error: {}", e)))?
+        .ok_or(Excel2PdfError::LibreOfficeNotInstalled)
 }

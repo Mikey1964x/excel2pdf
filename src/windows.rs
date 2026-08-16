@@ -9,11 +9,11 @@ use crate::error::Excel2PdfError;
 /// Checks `HKLM\SOFTWARE\LibreOffice\LibreOffice` recursively for a `Path`
 /// value and returns the path to `soffice.exe`.
 pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
-    use windows::Win32::System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY,
-        HKEY_LOCAL_MACHINE, KEY_READ, REG_SZ,
-    };
     use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
+        KEY_READ, REG_SZ,
+    };
 
     fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
@@ -55,7 +55,16 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
             let mut buf = vec![0u16; 256];
             let mut len = buf.len() as u32;
             let result = unsafe {
-                RegEnumKeyExW(hkey, idx, windows::core::PWSTR(buf.as_mut_ptr()), &mut len, None, windows::core::PWSTR::null(), None, None)
+                RegEnumKeyExW(
+                    hkey,
+                    idx,
+                    windows::core::PWSTR(buf.as_mut_ptr()),
+                    &mut len,
+                    None,
+                    windows::core::PWSTR::null(),
+                    None,
+                    None,
+                )
             };
             if result.is_err() {
                 break;
@@ -74,7 +83,9 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         for sub in enum_subkeys(hkey) {
             if let Some(child) = open_key(hkey, &sub) {
                 let found = search(child);
-                unsafe { let _ = RegCloseKey(child); }
+                unsafe {
+                    let _ = RegCloseKey(child);
+                }
                 if found.is_some() {
                     return found;
                 }
@@ -86,7 +97,9 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
     let root = open_key(HKEY_LOCAL_MACHINE, r"SOFTWARE\LibreOffice\LibreOffice");
     let result = root.and_then(|hkey| {
         let found = search(hkey);
-        unsafe { let _ = RegCloseKey(hkey); }
+        unsafe {
+            let _ = RegCloseKey(hkey);
+        }
         found
     });
 
@@ -105,11 +118,10 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
 
 /// Reports whether Microsoft Excel is installed on this machine by checking the registry.
 pub fn is_excel_installed() -> Result<bool, String> {
-    use windows::Win32::System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY,
-        HKEY_LOCAL_MACHINE, KEY_READ,
-    };
     use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ,
+    };
 
     fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
@@ -127,7 +139,16 @@ pub fn is_excel_installed() -> Result<bool, String> {
             let mut buf = vec![0u16; 256];
             let mut len = buf.len() as u32;
             let result = unsafe {
-                RegEnumKeyExW(hkey, idx, windows::core::PWSTR(buf.as_mut_ptr()), &mut len, None, windows::core::PWSTR::null(), None, None)
+                RegEnumKeyExW(
+                    hkey,
+                    idx,
+                    windows::core::PWSTR(buf.as_mut_ptr()),
+                    &mut len,
+                    None,
+                    windows::core::PWSTR::null(),
+                    None,
+                    None,
+                )
             };
             if result.is_err() {
                 break;
@@ -139,9 +160,18 @@ pub fn is_excel_installed() -> Result<bool, String> {
     }
 
     fn has_excel(hkey: HKEY) -> bool {
-        let skippable = ["ClickToRun", "Common", "Access",
-            "ClickToRunStore", "Outlook", "PowerPoint",
-            "Project", "SDXHelper", "Visio", "Word"];
+        let skippable = [
+            "ClickToRun",
+            "Common",
+            "Access",
+            "ClickToRunStore",
+            "Outlook",
+            "PowerPoint",
+            "Project",
+            "SDXHelper",
+            "Visio",
+            "Word",
+        ];
 
         for sub in enum_subkeys(hkey) {
             if sub == "Excel" {
@@ -153,7 +183,9 @@ pub fn is_excel_installed() -> Result<bool, String> {
             // Recurse into unknown subkeys
             if let Some(child) = open_key(hkey, &sub) {
                 let found = has_excel(child);
-                unsafe { let _ = RegCloseKey(child); }
+                unsafe {
+                    let _ = RegCloseKey(child);
+                }
                 if found {
                     return true;
                 }
@@ -167,7 +199,9 @@ pub fn is_excel_installed() -> Result<bool, String> {
         None => return Ok(false),
     };
     let result = has_excel(root);
-    unsafe { let _ = RegCloseKey(root); }
+    unsafe {
+        let _ = RegCloseKey(root);
+    }
     Ok(result)
 }
 

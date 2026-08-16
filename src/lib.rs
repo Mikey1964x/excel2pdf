@@ -36,8 +36,8 @@ pub use error::Excel2PdfError;
 
 use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
-use std::sync::{Condvar, Mutex, TryLockError};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Condvar, Mutex, TryLockError};
 
 /// Result type alias for this crate.
 pub type Result<T> = std::result::Result<T, Excel2PdfError>;

@@ -6,7 +6,9 @@ use crate::error::Excel2PdfError;
 /// Merges multiple PDF files into a single PDF written to `output_path`.
 pub fn merge_pdfs<P: AsRef<Path>>(input_paths: &[P], output_path: &Path) -> crate::Result<()> {
     if input_paths.is_empty() {
-        return Err(Excel2PdfError::InvalidInput("no input PDF files provided".into()));
+        return Err(Excel2PdfError::InvalidInput(
+            "no input PDF files provided".into(),
+        ));
     }
 
     // Load and renumber each document so their object IDs don't clash.
@@ -28,7 +30,7 @@ pub fn merge_pdfs<P: AsRef<Path>>(input_paths: &[P], output_path: &Path) -> crat
     let mut all_page_ids: Vec<ObjectId> = Vec::new();
     for doc in &docs {
         let pages = doc.get_pages(); // BTreeMap<page_number, ObjectId>
-        for (_num, page_id) in &pages {
+        for page_id in pages.values() {
             all_page_ids.push(*page_id);
         }
     }
@@ -47,10 +49,8 @@ pub fn merge_pdfs<P: AsRef<Path>>(input_paths: &[P], output_path: &Path) -> crat
 
     // Fix each Page's /Parent to point to our new Pages node.
     for page_id in &all_page_ids {
-        if let Some(obj) = merged.objects.get_mut(page_id) {
-            if let Object::Dictionary(dict) = obj {
-                dict.set("Parent", Object::Reference(pages_node_id));
-            }
+        if let Some(Object::Dictionary(dict)) = merged.objects.get_mut(page_id) {
+            dict.set("Parent", Object::Reference(pages_node_id));
         }
     }
 
@@ -59,16 +59,25 @@ pub fn merge_pdfs<P: AsRef<Path>>(input_paths: &[P], output_path: &Path) -> crat
     pages_node.set("Type", Object::Name(b"Pages".to_vec()));
     pages_node.set(
         "Kids",
-        Object::Array(all_page_ids.iter().map(|id| Object::Reference(*id)).collect()),
+        Object::Array(
+            all_page_ids
+                .iter()
+                .map(|id| Object::Reference(*id))
+                .collect(),
+        ),
     );
     pages_node.set("Count", Object::Integer(all_page_ids.len() as i64));
-    merged.objects.insert(pages_node_id, Object::Dictionary(pages_node));
+    merged
+        .objects
+        .insert(pages_node_id, Object::Dictionary(pages_node));
 
     // Build the Catalog.
     let mut catalog = Dictionary::new();
     catalog.set("Type", Object::Name(b"Catalog".to_vec()));
     catalog.set("Pages", Object::Reference(pages_node_id));
-    merged.objects.insert(catalog_id, Object::Dictionary(catalog));
+    merged
+        .objects
+        .insert(catalog_id, Object::Dictionary(catalog));
 
     // Remove old Pages nodes (the top-level /Pages from each source doc)
     // so we don't have dangling tree nodes confusing readers.
@@ -90,9 +99,9 @@ pub fn merge_pdfs<P: AsRef<Path>>(input_paths: &[P], output_path: &Path) -> crat
     merged.trailer.set("Root", Object::Reference(catalog_id));
     merged.max_id = catalog_id.0;
 
-    merged.save(output_path).map_err(|e| {
-        Excel2PdfError::Pdf(format!("failed to save merged PDF: {}", e))
-    })?;
+    merged
+        .save(output_path)
+        .map_err(|e| Excel2PdfError::Pdf(format!("failed to save merged PDF: {}", e)))?;
 
     Ok(())
 }
@@ -113,9 +122,8 @@ pub fn page_count<P: AsRef<Path>>(pdf_path: P) -> crate::Result<u32> {
 /// If the file has one page or fewer, this is a no-op.
 pub fn remove_all_but_first_page<P: AsRef<Path>>(pdf_path: P) -> crate::Result<()> {
     let path = pdf_path.as_ref();
-    let mut doc = Document::load(path).map_err(|e| {
-        Excel2PdfError::Pdf(format!("failed to load {}: {}", path.display(), e))
-    })?;
+    let mut doc = Document::load(path)
+        .map_err(|e| Excel2PdfError::Pdf(format!("failed to load {}: {}", path.display(), e)))?;
 
     let count = doc.get_pages().len() as u32;
     if count <= 1 {
@@ -126,10 +134,8 @@ pub fn remove_all_but_first_page<P: AsRef<Path>>(pdf_path: P) -> crate::Result<(
     let to_delete: Vec<u32> = (2..=count).collect();
     doc.delete_pages(&to_delete);
 
-    doc.save(path).map_err(|e| {
-        Excel2PdfError::Pdf(format!("failed to save {}: {}", path.display(), e))
-    })?;
+    doc.save(path)
+        .map_err(|e| Excel2PdfError::Pdf(format!("failed to save {}: {}", path.display(), e)))?;
 
     Ok(())
 }
-
