@@ -31,6 +31,7 @@ jobs:
           cache: true
 
       - name: Run Go tests
+        shell: bash
         run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Build Go (linux)
@@ -146,7 +147,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           args: --timeout=5m
@@ -154,6 +155,7 @@ jobs:
   lint-rust:
     name: Rust Format & Lint (disabled - fix Go first)
     if: false
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
       - run: echo "Rust jobs disabled"
@@ -186,6 +188,7 @@ jobs:
   security-rust:
     name: Rust Security Audit (disabled - fix Go first)
     if: false
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
       - run: echo "Rust jobs disabled"
