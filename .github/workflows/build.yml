@@ -60,17 +60,31 @@ jobs:
           name: go-coverage
 
   # ============================================================================
-  # RUST BUILD & TEST (disabled - fix Go first)
+  # RUST BUILD & TEST
+  # Windows is excluded from the matrix because Excel COM interop requires a
+  # real Windows environment with Microsoft Excel installed, which is not
+  # available on GitHub Actions runners.
   # ============================================================================
   build-rust:
     name: Rust Build & Test - ${{ matrix.os }}
-    if: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest]
     steps:
-      - run: echo "Rust jobs disabled"
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build (verbose)
+        run: cargo build --verbose
+
+      - name: Test (lib only — Windows COM tests are skipped on Linux)
+        run: cargo test --lib --verbose
 
   # ============================================================================
   # GO CROSS-COMPILE MATRIX (Additional targets)
@@ -120,17 +134,55 @@ jobs:
           path: dist/
 
   # ============================================================================
-  # RUST CROSS-COMPILE MATRIX (disabled - fix Go first)
+  # RUST CROSS-COMPILE MATRIX
+  # Targets: Linux amd64, Linux arm64 (via cross), Windows amd64 (mingw)
   # ============================================================================
   build-rust-cross:
     name: Rust Cross-Compile - ${{ matrix.target }}
-    if: false
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu]
+        include:
+          - target: x86_64-unknown-linux-gnu
+            use_cross: false
+          - target: aarch64-unknown-linux-gnu
+            use_cross: true
+          - target: x86_64-pc-windows-gnu
+            use_cross: false
     steps:
-      - run: echo "Rust jobs disabled"
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install cross (for aarch64)
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Install mingw-w64 (for Windows GNU target)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Build (cross)
+        if: matrix.use_cross
+        run: cross build --target ${{ matrix.target }} --verbose
+
+      - name: Build (cargo)
+        if: "!matrix.use_cross"
+        run: cargo build --target ${{ matrix.target }} --verbose
+
+      - name: Upload cross-compile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-build-${{ matrix.target }}
+          path: target/${{ matrix.target }}/debug/
 
   # ============================================================================
   # LINTING & CODE QUALITY
@@ -153,12 +205,24 @@ jobs:
           args: --timeout=5m
 
   lint-rust:
-    name: Rust Format & Lint (disabled - fix Go first)
-    if: false
-    permissions: {}
+    name: Rust Format & Lint
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Rust jobs disabled"
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain with rustfmt and clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy -- -D warnings
 
   # ============================================================================
   # SECURITY SCANNING
@@ -186,12 +250,19 @@ jobs:
           category: gosec
 
   security-rust:
-    name: Rust Security Audit (disabled - fix Go first)
-    if: false
-    permissions: {}
+    name: Rust Security Audit
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Rust jobs disabled"
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run cargo audit
+        run: cargo audit
 
   # ============================================================================
   # GO VULNERABILITY CHECK
@@ -227,6 +298,10 @@ jobs:
         lint-go,
         security-go,
         vuln-go,
+        build-rust,
+        build-rust-cross,
+        lint-rust,
+        security-rust,
       ]
     if: always()
     steps:
@@ -236,7 +311,11 @@ jobs:
              [[ "${{ needs.build-go-cross.result }}" != "success" ]] || \
              [[ "${{ needs.lint-go.result }}" != "success" ]] || \
              [[ "${{ needs.security-go.result }}" != "success" ]] || \
-             [[ "${{ needs.vuln-go.result }}" != "success" ]]; then
+             [[ "${{ needs.vuln-go.result }}" != "success" ]] || \
+             [[ "${{ needs.build-rust.result }}" != "success" ]] || \
+             [[ "${{ needs.build-rust-cross.result }}" != "success" ]] || \
+             [[ "${{ needs.lint-rust.result }}" != "success" ]] || \
+             [[ "${{ needs.security-rust.result }}" != "success" ]]; then
             echo "❌ One or more jobs failed"
             exit 1
           fi
