@@ -194,6 +194,27 @@ jobs:
       - run: echo "Rust jobs disabled"
 
   # ============================================================================
+  # GO VULNERABILITY CHECK
+  # ============================================================================
+  vuln-go:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # ============================================================================
   # SUMMARY JOB
   # ============================================================================
   all-checks:
@@ -205,6 +226,7 @@ jobs:
         build-go-cross,
         lint-go,
         security-go,
+        vuln-go,
       ]
     if: always()
     steps:
@@ -213,7 +235,8 @@ jobs:
           if [[ "${{ needs.build-go.result }}" != "success" ]] || \
              [[ "${{ needs.build-go-cross.result }}" != "success" ]] || \
              [[ "${{ needs.lint-go.result }}" != "success" ]] || \
-             [[ "${{ needs.security-go.result }}" != "success" ]]; then
+             [[ "${{ needs.security-go.result }}" != "success" ]] || \
+             [[ "${{ needs.vuln-go.result }}" != "success" ]]; then
             echo "❌ One or more jobs failed"
             exit 1
           fi
