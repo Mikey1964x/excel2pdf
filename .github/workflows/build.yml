@@ -149,7 +149,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: 1.26.6
+          version: v1.26.6
           args: --timeout=5m
 
   lint-rust:
