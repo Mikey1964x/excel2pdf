@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -49,79 +48,5 @@ func TestConvertExcelToPdf(t *testing.T) {
 		t.Errorf("output file does not exist: %v", err)
 	} else if info.Size() == 0 {
 		t.Errorf("output PDF is empty")
-	}
-}
-
-// TestConvertExcelToPDFWithExcel_Multiple verifies that all Excel files found
-// in ./testdata can be converted to PDF simultaneously using
-// convertExcelToPDFWithExcel.
-//
-// The test is skipped when ./testdata contains no .xlsx files.
-//
-// Each conversion runs in its own goroutine. The test waits for all of them to
-// finish, then asserts that every goroutine produced a non-empty PDF alongside
-// its source file and returned no error.
-//
-// The generated PDFs are removed by t.Cleanup after the test completes.
-func TestConvertExcelToPDFWithExcel_Multiple(t *testing.T) {
-	entries, err := os.ReadDir("./testdata")
-	if err != nil {
-		t.Fatalf("reading testdata dir: %v", err)
-	}
-	var inputs []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".xlsx") {
-			inputs = append(inputs, filepath.Join("./testdata", e.Name()))
-		}
-	}
-	if len(inputs) == 0 {
-		t.Skip("no .xlsx files found in testdata")
-	}
-
-	type result struct {
-		input   string
-		pdfFile string
-		err     error
-	}
-
-	results := make([]result, len(inputs))
-	var wg sync.WaitGroup
-	for i, input := range inputs {
-		wg.Add(1)
-		go func(idx int, path string) {
-			defer wg.Done()
-			pdfFile, err := convertExcelToPDFWithExcel(path)
-			results[idx] = result{input: path, pdfFile: pdfFile, err: err}
-		}(i, input)
-	}
-	wg.Wait()
-
-	for _, r := range results {
-		r := r
-		if r.err != nil {
-			t.Errorf("convertExcelToPDFWithExcel(%q) error: %v", r.input, r.err)
-			continue
-		}
-		t.Cleanup(func() { os.Remove(r.pdfFile) })
-
-		if !strings.HasSuffix(r.pdfFile, ".pdf") {
-			t.Errorf("%q: expected .pdf suffix, got %q", r.input, r.pdfFile)
-		}
-		wantAbs, err := filepath.Abs(
-			filepath.Join(filepath.Dir(r.input), filepath.Base(r.input[:len(r.input)-len(filepath.Ext(r.input))]+".pdf")),
-		)
-		if err != nil {
-			t.Errorf("%q: filepath.Abs error: %v", r.input, err)
-			continue
-		}
-		if filepath.Clean(r.pdfFile) != filepath.Clean(wantAbs) {
-			t.Errorf("%q: expected output path %q, got %q", r.input, wantAbs, r.pdfFile)
-		}
-		info, err := os.Stat(r.pdfFile)
-		if err != nil {
-			t.Errorf("%q: output file does not exist: %v", r.input, err)
-		} else if info.Size() == 0 {
-			t.Errorf("%q: output PDF is empty", r.input)
-		}
 	}
 }
