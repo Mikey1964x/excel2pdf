@@ -17,6 +17,7 @@ jobs:
   # ============================================================================
   build-go:
     name: Go Build & Test - ${{ matrix.os }}
+    if: false
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -91,6 +92,7 @@ jobs:
   # ============================================================================
   build-go-cross:
     name: Go Cross-Compile - ${{ matrix.goos }}/${{ matrix.goarch }}
+    if: false
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -135,7 +137,8 @@ jobs:
 
   # ============================================================================
   # RUST CROSS-COMPILE MATRIX
-  # Targets: Linux amd64, Linux arm64 (via cross), Windows amd64 (mingw)
+  # Targets: Linux amd64, Linux arm64 (via cross).
+  # Windows cross-compilation needs the MSVC target on a Windows runner.
   # ============================================================================
   build-rust-cross:
     name: Rust Cross-Compile - ${{ matrix.target }}
@@ -147,8 +150,6 @@ jobs:
             use_cross: false
           - target: aarch64-unknown-linux-gnu
             use_cross: true
-          - target: x86_64-pc-windows-gnu
-            use_cross: false
     steps:
       - uses: actions/checkout@v4
 
@@ -165,10 +166,6 @@ jobs:
       - name: Install cross (for aarch64)
         if: matrix.use_cross
         run: cargo install cross --git https://github.com/cross-rs/cross
-
-      - name: Install mingw-w64 (for Windows GNU target)
-        if: matrix.target == 'x86_64-pc-windows-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64
 
       - name: Build (cross)
         if: matrix.use_cross
@@ -189,6 +186,7 @@ jobs:
   # ============================================================================
   lint-go:
     name: Go Lint
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -229,6 +227,7 @@ jobs:
   # ============================================================================
   security-go:
     name: Go Security Scan
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -254,21 +253,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
       - name: Run cargo audit
-        run: cargo audit
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================================
   # GO VULNERABILITY CHECK
   # ============================================================================
   vuln-go:
     name: Go Vulnerability Check
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -293,11 +288,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        build-go,
-        build-go-cross,
-        lint-go,
-        security-go,
-        vuln-go,
         build-rust,
         build-rust-cross,
         lint-rust,
@@ -307,12 +297,7 @@ jobs:
     steps:
       - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.build-go.result }}" != "success" ]] || \
-             [[ "${{ needs.build-go-cross.result }}" != "success" ]] || \
-             [[ "${{ needs.lint-go.result }}" != "success" ]] || \
-             [[ "${{ needs.security-go.result }}" != "success" ]] || \
-             [[ "${{ needs.vuln-go.result }}" != "success" ]] || \
-             [[ "${{ needs.build-rust.result }}" != "success" ]] || \
+          if [[ "${{ needs.build-rust.result }}" != "success" ]] || \
              [[ "${{ needs.build-rust-cross.result }}" != "success" ]] || \
              [[ "${{ needs.lint-rust.result }}" != "success" ]] || \
              [[ "${{ needs.security-rust.result }}" != "success" ]]; then

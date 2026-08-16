@@ -38,10 +38,7 @@ fn create_test_pdf(path: &Path) -> PathBuf {
     let mut doc = Document::with_version("1.5");
 
     // Page content stream (empty).
-    let content_id = doc.add_object(Object::Stream(Stream::new(
-        Dictionary::new(),
-        b"".to_vec(),
-    )));
+    let content_id = doc.add_object(Object::Stream(Stream::new(Dictionary::new(), b"".to_vec())));
 
     // Page dictionary.
     let mut page_dict = Dictionary::new();
@@ -227,8 +224,7 @@ fn test_convert_excel_to_pdf() {
             );
             std::fs::remove_file(&pdf_path).ok();
         }
-        Err(Excel2PdfError::LibreOfficeNotInstalled)
-        | Err(Excel2PdfError::ConverterNotFound) => {
+        Err(Excel2PdfError::LibreOfficeNotInstalled) | Err(Excel2PdfError::ConverterNotFound) => {
             eprintln!("skipping: no converter available");
         }
         Err(e) => panic!("unexpected error: {:?}", e),
