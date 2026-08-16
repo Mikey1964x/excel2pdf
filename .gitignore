@@ -20,3 +20,8 @@ inno_setup.iss
 *.xlsx
 *.pdf
 
+
+
+# Added by cargo
+
+/target
