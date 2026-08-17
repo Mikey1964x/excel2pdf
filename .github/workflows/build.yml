@@ -87,6 +87,37 @@ jobs:
         run: cargo test --lib --verbose
 
   # ============================================================================
+  # RUST WINDOWS BUILD (amd64)
+  # Runs on a real windows-latest runner so the MSVC toolchain is available.
+  # COM / Windows-specific code can compile here; tests are skipped because
+  # Microsoft Excel is not installed on GitHub-hosted Windows runners.
+  # ============================================================================
+  build-rust-windows:
+    name: Rust Build - windows-latest (x86_64-pc-windows-msvc)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust toolchain (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-x86_64-pc-windows-msvc
+
+      - name: Build (cargo – Windows amd64)
+        run: cargo build --target x86_64-pc-windows-msvc --verbose
+
+      - name: Upload Windows amd64 artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-build-x86_64-pc-windows-msvc
+          path: target/x86_64-pc-windows-msvc/debug/*.exe
+
+  # ============================================================================
   # GO CROSS-COMPILE MATRIX (Additional targets)
   # ============================================================================
   build-go-cross:
@@ -297,6 +328,7 @@ jobs:
         security-go,
         vuln-go,
         build-rust,
+        build-rust-windows,
         build-rust-cross,
         lint-rust,
         security-rust,
@@ -311,6 +343,7 @@ jobs:
              [[ "${{ needs.security-go.result }}" != "success" ]] || \
              [[ "${{ needs.vuln-go.result }}" != "success" ]] || \
              [[ "${{ needs.build-rust.result }}" != "success" ]] || \
+             [[ "${{ needs.build-rust-windows.result }}" != "success" ]] || \
              [[ "${{ needs.build-rust-cross.result }}" != "success" ]] || \
              [[ "${{ needs.lint-rust.result }}" != "success" ]] || \
              [[ "${{ needs.security-rust.result }}" != "success" ]]; then
