@@ -19,8 +19,11 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
         unsafe {
-            RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).ok()?;
-            Some(hkey)
+            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).is_ok() {
+                Some(hkey)
+            } else {
+                None
+            }
         }
     }
 
@@ -129,8 +132,11 @@ pub fn is_excel_installed() -> Result<bool, String> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
         unsafe {
-            RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).ok()?;
-            Some(hkey)
+            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).is_ok() {
+                Some(hkey)
+            } else {
+                None
+            }
         }
     }
 
