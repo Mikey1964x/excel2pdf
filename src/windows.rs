@@ -19,7 +19,7 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
         unsafe {
-            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).is_ok() {
+            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), None, KEY_READ, &mut hkey).is_ok() {
                 Some(hkey)
             } else {
                 None
@@ -63,10 +63,10 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
                 RegEnumKeyExW(
                     hkey,
                     idx,
-                    windows::core::PWSTR(buf.as_mut_ptr()),
+                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
                     &mut len,
                     None,
-                    windows::core::PWSTR(class_buf.as_mut_ptr()),
+                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
                     Some(&mut class_len),
                     None,
                 )
@@ -132,7 +132,7 @@ pub fn is_excel_installed() -> Result<bool, String> {
         let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
         unsafe {
-            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).is_ok() {
+            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), None, KEY_READ, &mut hkey).is_ok() {
                 Some(hkey)
             } else {
                 None
@@ -152,10 +152,10 @@ pub fn is_excel_installed() -> Result<bool, String> {
                 RegEnumKeyExW(
                     hkey,
                     idx,
-                    windows::core::PWSTR(buf.as_mut_ptr()),
+                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
                     &mut len,
                     None,
-                    windows::core::PWSTR(class_buf.as_mut_ptr()),
+                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
                     Some(&mut class_len),
                     None,
                 )
