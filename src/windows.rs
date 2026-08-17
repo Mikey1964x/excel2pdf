@@ -4,28 +4,60 @@ use std::path::{Path, PathBuf};
 
 use crate::error::Excel2PdfError;
 
+use windows::core::PCWSTR;
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, KEY_READ,
+};
+
+/// Opens a registry subkey for reading. Returns `None` if the key does not exist.
+fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
+    let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
+    let mut hkey = HKEY::default();
+    unsafe {
+        if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), None, KEY_READ, &mut hkey).is_ok() {
+            Some(hkey)
+        } else {
+            None
+        }
+    }
+}
+
+/// Enumerates the direct subkey names of a registry key.
+fn enum_subkeys(hkey: HKEY) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut idx = 0u32;
+    loop {
+        let mut buf = vec![0u16; 256];
+        let mut len = buf.len() as u32;
+        let mut class_buf = vec![0u16; 256];
+        let mut class_len = class_buf.len() as u32;
+        let result = unsafe {
+            RegEnumKeyExW(
+                hkey,
+                idx,
+                Some(windows::core::PWSTR(buf.as_mut_ptr())),
+                &mut len,
+                None,
+                Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
+                Some(&mut class_len),
+                None,
+            )
+        };
+        if result.is_err() {
+            break;
+        }
+        names.push(String::from_utf16_lossy(&buf[..len as usize]));
+        idx += 1;
+    }
+    names
+}
+
 /// Search the Windows registry for the LibreOffice installation path.
 ///
 /// Checks `HKLM\SOFTWARE\LibreOffice\LibreOffice` recursively for a `Path`
 /// value and returns the path to `soffice.exe`.
 pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
-    use windows::core::PCWSTR;
-    use windows::Win32::System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
-        KEY_READ, REG_SZ,
-    };
-
-    fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
-        let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
-        let mut hkey = HKEY::default();
-        unsafe {
-            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), None, KEY_READ, &mut hkey).is_ok() {
-                Some(hkey)
-            } else {
-                None
-            }
-        }
-    }
+    use windows::Win32::System::Registry::{RegQueryValueExW, HKEY_LOCAL_MACHINE, REG_SZ};
 
     fn read_path(hkey: HKEY) -> Option<String> {
         let name: Vec<u16> = "Path\0".encode_utf16().collect();
@@ -49,36 +81,6 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         } else {
             None
         }
-    }
-
-    fn enum_subkeys(hkey: HKEY) -> Vec<String> {
-        let mut names = Vec::new();
-        let mut idx = 0u32;
-        loop {
-            let mut buf = vec![0u16; 256];
-            let mut len = buf.len() as u32;
-            let mut class_buf = vec![0u16; 256];
-            let mut class_len = class_buf.len() as u32;
-            let result = unsafe {
-                RegEnumKeyExW(
-                    hkey,
-                    idx,
-                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
-                    &mut len,
-                    None,
-                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
-                    Some(&mut class_len),
-                    None,
-                )
-            };
-            if result.is_err() {
-                break;
-            }
-            let name = String::from_utf16_lossy(&buf[..len as usize]);
-            names.push(name);
-            idx += 1;
-        }
-        names
     }
 
     fn search(hkey: HKEY) -> Option<String> {
@@ -123,51 +125,7 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
 
 /// Reports whether Microsoft Excel is installed on this machine by checking the registry.
 pub fn is_excel_installed() -> Result<bool, String> {
-    use windows::core::PCWSTR;
-    use windows::Win32::System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE, KEY_READ,
-    };
-
-    fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
-        let wide: Vec<u16> = subkey.encode_utf16().chain(std::iter::once(0)).collect();
-        let mut hkey = HKEY::default();
-        unsafe {
-            if RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), None, KEY_READ, &mut hkey).is_ok() {
-                Some(hkey)
-            } else {
-                None
-            }
-        }
-    }
-
-    fn enum_subkeys(hkey: HKEY) -> Vec<String> {
-        let mut names = Vec::new();
-        let mut idx = 0u32;
-        loop {
-            let mut buf = vec![0u16; 256];
-            let mut len = buf.len() as u32;
-            let mut class_buf = vec![0u16; 256];
-            let mut class_len = class_buf.len() as u32;
-            let result = unsafe {
-                RegEnumKeyExW(
-                    hkey,
-                    idx,
-                    Some(windows::core::PWSTR(buf.as_mut_ptr())),
-                    &mut len,
-                    None,
-                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
-                    Some(&mut class_len),
-                    None,
-                )
-            };
-            if result.is_err() {
-                break;
-            }
-            names.push(String::from_utf16_lossy(&buf[..len as usize]));
-            idx += 1;
-        }
-        names
-    }
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
 
     fn has_excel(hkey: HKEY) -> bool {
         let skippable = [
