@@ -66,7 +66,7 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
                     windows::core::PWSTR(buf.as_mut_ptr()),
                     &mut len,
                     None,
-                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
+                    windows::core::PWSTR(class_buf.as_mut_ptr()),
                     Some(&mut class_len),
                     None,
                 )
@@ -155,7 +155,7 @@ pub fn is_excel_installed() -> Result<bool, String> {
                     windows::core::PWSTR(buf.as_mut_ptr()),
                     &mut len,
                     None,
-                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
+                    windows::core::PWSTR(class_buf.as_mut_ptr()),
                     Some(&mut class_len),
                     None,
                 )
