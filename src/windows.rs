@@ -1,6 +1,7 @@
 #![cfg(target_os = "windows")]
 
 use std::mem::ManuallyDrop;
+use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use crate::error::Excel2PdfError;
@@ -60,16 +61,13 @@ fn map_windows_error(err: windows::core::Error) -> Excel2PdfError {
     Excel2PdfError::ConversionFailed(err.to_string())
 }
 
-fn bstr_from_str(s: &str) -> BSTR {
-    BSTR::from(s)
-}
-
-fn variant_bstr(s: &str) -> VARIANT {
+fn variant_path(path: &Path) -> VARIANT {
+    let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
     let mut variant = VARIANT::default();
     unsafe {
         let inner = &mut *variant.Anonymous.Anonymous;
         inner.vt = VT_BSTR;
-        inner.Anonymous.bstrVal = ManuallyDrop::new(bstr_from_str(s));
+        inner.Anonymous.bstrVal = ManuallyDrop::new(BSTR::from_wide(&wide));
     }
     variant
 }
@@ -219,6 +217,12 @@ fn take_dispatch(variant: &mut VARIANT) -> crate::Result<IDispatch> {
         inner.vt = VT_EMPTY;
         Ok(dispatch)
     }
+}
+
+fn into_dispatch(mut variant: VARIANT) -> crate::Result<IDispatch> {
+    let result = take_dispatch(&mut variant);
+    clear_variant(&mut variant);
+    result
 }
 
 fn close_workbook(workbook: &IDispatch) -> windows::core::Result<()> {
@@ -407,8 +411,6 @@ pub fn is_excel_installed() -> Result<bool, String> {
 pub fn convert_with_excel(excel_path: &Path) -> crate::Result<PathBuf> {
     let excel_path = excel_path.canonicalize()?;
     let pdf_path = excel_path.with_extension("pdf");
-    let excel_path_str = excel_path.to_string_lossy().into_owned();
-    let pdf_path_str = pdf_path.to_string_lossy().into_owned();
 
     unsafe {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED)
@@ -434,16 +436,14 @@ pub fn convert_with_excel(excel_path: &Path) -> crate::Result<PathBuf> {
         .map_err(map_windows_error)?;
 
     let workbooks_id = get_dispatch_id(application, "Workbooks").map_err(map_windows_error)?;
-    let mut workbooks_variant =
-        invoke_property_get(application, workbooks_id).map_err(map_windows_error)?;
-    let workbooks = take_dispatch(&mut workbooks_variant)?;
+    let workbooks =
+        into_dispatch(invoke_property_get(application, workbooks_id).map_err(map_windows_error)?)?;
 
     let open_id = get_dispatch_id(&workbooks, "Open").map_err(map_windows_error)?;
-    let mut open_args = [variant_bstr(&excel_path_str)];
+    let mut open_args = [variant_path(&excel_path)];
     let workbook_variant = invoke_method(&workbooks, open_id, &mut open_args);
     clear_variants(&mut open_args);
-    let mut workbook_variant = workbook_variant.map_err(map_windows_error)?;
-    let workbook = take_dispatch(&mut workbook_variant)?;
+    let workbook = into_dispatch(workbook_variant.map_err(map_windows_error)?)?;
     excel.workbook = Some(workbook);
 
     let workbook = excel.workbook.as_ref().unwrap();
@@ -453,7 +453,7 @@ pub fn convert_with_excel(excel_path: &Path) -> crate::Result<PathBuf> {
         variant_bool(false),
         variant_bool(true),
         variant_i4(XL_QUALITY_STANDARD),
-        variant_bstr(&pdf_path_str),
+        variant_path(&pdf_path),
         variant_i4(XL_TYPE_PDF),
     ];
     let export_result = invoke_method(workbook, export_id, &mut export_args);
