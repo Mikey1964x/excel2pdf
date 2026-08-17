@@ -115,9 +115,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: rust-build-x86_64-pc-windows-msvc
-          path: |
-            target/x86_64-pc-windows-msvc/debug/*.dll
-            target/x86_64-pc-windows-msvc/debug/*.lib
+          path: target/x86_64-pc-windows-msvc/debug/*.rlib
+          if-no-files-found: error
           if-no-files-found: error
 
   # ============================================================================
