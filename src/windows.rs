@@ -54,6 +54,8 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         loop {
             let mut buf = vec![0u16; 256];
             let mut len = buf.len() as u32;
+            let mut class_buf = vec![0u16; 256];
+            let mut class_len = class_buf.len() as u32;
             let result = unsafe {
                 RegEnumKeyExW(
                     hkey,
@@ -61,8 +63,8 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
                     windows::core::PWSTR(buf.as_mut_ptr()),
                     &mut len,
                     None,
-                    windows::core::PWSTR::null(),
-                    None,
+                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
+                    Some(&mut class_len),
                     None,
                 )
             };
@@ -138,6 +140,8 @@ pub fn is_excel_installed() -> Result<bool, String> {
         loop {
             let mut buf = vec![0u16; 256];
             let mut len = buf.len() as u32;
+            let mut class_buf = vec![0u16; 256];
+            let mut class_len = class_buf.len() as u32;
             let result = unsafe {
                 RegEnumKeyExW(
                     hkey,
@@ -145,8 +149,8 @@ pub fn is_excel_installed() -> Result<bool, String> {
                     windows::core::PWSTR(buf.as_mut_ptr()),
                     &mut len,
                     None,
-                    windows::core::PWSTR::null(),
-                    None,
+                    Some(windows::core::PWSTR(class_buf.as_mut_ptr())),
+                    Some(&mut class_len),
                     None,
                 )
             };
