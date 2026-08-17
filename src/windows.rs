@@ -1,13 +1,247 @@
 #![cfg(target_os = "windows")]
 
+use std::mem::ManuallyDrop;
+use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
 use crate::error::Excel2PdfError;
 
-use windows::core::PCWSTR;
-use windows::Win32::System::Registry::{
-    RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, KEY_READ,
+use windows::core::{BSTR, GUID, PCWSTR};
+use windows::Win32::Foundation::VARIANT_BOOL;
+use windows::Win32::System::Com::{
+    CoCreateInstance, CoInitializeEx, CoUninitialize, IDispatch, CLSCTX_LOCAL_SERVER,
+    COINIT_APARTMENTTHREADED, DISPATCH_METHOD, DISPATCH_PROPERTYGET, DISPATCH_PROPERTYPUT,
+    DISPPARAMS,
 };
+use windows::Win32::System::Ole::DISPID_PROPERTYPUT;
+use windows::Win32::System::Registry::{RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY, KEY_READ};
+use windows::Win32::System::Variant::{
+    VariantClear, VARIANT, VT_BOOL, VT_BSTR, VT_DISPATCH, VT_EMPTY, VT_I4,
+};
+
+const EXCEL_APPLICATION_CLSID: GUID = GUID::from_u128(0x00024500_0000_0000_c000_000000000046);
+const XL_TYPE_PDF: i32 = 0;
+const XL_QUALITY_STANDARD: i32 = 0;
+
+struct ComGuard;
+
+impl Drop for ComGuard {
+    fn drop(&mut self) {
+        unsafe {
+            CoUninitialize();
+        }
+    }
+}
+
+struct ExcelGuard {
+    application: Option<IDispatch>,
+    workbook: Option<IDispatch>,
+}
+
+impl Drop for ExcelGuard {
+    fn drop(&mut self) {
+        if let Some(workbook) = self.workbook.take() {
+            let _ = close_workbook(&workbook);
+        }
+        if let Some(application) = self.application.take() {
+            let _ = quit_application(&application);
+        }
+    }
+}
+
+struct VariantGuard<'a>(&'a mut VARIANT);
+
+impl Drop for VariantGuard<'_> {
+    fn drop(&mut self) {
+        clear_variant(self.0);
+    }
+}
+
+fn map_windows_error(err: windows::core::Error) -> Excel2PdfError {
+    Excel2PdfError::ConversionFailed(err.to_string())
+}
+
+fn variant_path(path: &Path) -> VARIANT {
+    let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    let mut variant = VARIANT::default();
+    unsafe {
+        let inner = &mut *variant.Anonymous.Anonymous;
+        inner.vt = VT_BSTR;
+        inner.Anonymous.bstrVal = ManuallyDrop::new(BSTR::from_wide(&wide));
+    }
+    variant
+}
+
+fn variant_i4(value: i32) -> VARIANT {
+    let mut variant = VARIANT::default();
+    unsafe {
+        let inner = &mut *variant.Anonymous.Anonymous;
+        inner.vt = VT_I4;
+        inner.Anonymous.lVal = value;
+    }
+    variant
+}
+
+fn variant_bool(value: bool) -> VARIANT {
+    let mut variant = VARIANT::default();
+    unsafe {
+        let inner = &mut *variant.Anonymous.Anonymous;
+        inner.vt = VT_BOOL;
+        inner.Anonymous.boolVal = VARIANT_BOOL::from(value);
+    }
+    variant
+}
+
+fn clear_variant(variant: &mut VARIANT) {
+    unsafe {
+        let _ = VariantClear(variant);
+    }
+}
+
+fn clear_variants(variants: &mut [VARIANT]) {
+    for variant in variants.iter_mut() {
+        clear_variant(variant);
+    }
+}
+
+fn get_dispatch_id(dispatch: &IDispatch, name: &str) -> windows::core::Result<i32> {
+    let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+    let names = [PCWSTR(wide.as_ptr())];
+    let iid_null = GUID::zeroed();
+    let mut dispid = 0;
+    unsafe {
+        dispatch.GetIDsOfNames(
+            &iid_null,
+            names.as_ptr(),
+            names.len() as u32,
+            0,
+            &mut dispid,
+        )?;
+    }
+    Ok(dispid)
+}
+
+fn invoke(
+    dispatch: &IDispatch,
+    dispid: i32,
+    flags: windows::Win32::System::Com::DISPATCH_FLAGS,
+    args: &mut [VARIANT],
+    named_args: &mut [i32],
+) -> windows::core::Result<VARIANT> {
+    let params = DISPPARAMS {
+        rgvarg: if args.is_empty() {
+            std::ptr::null_mut()
+        } else {
+            args.as_mut_ptr()
+        },
+        rgdispidNamedArgs: if named_args.is_empty() {
+            std::ptr::null_mut()
+        } else {
+            named_args.as_mut_ptr()
+        },
+        cArgs: args.len() as u32,
+        cNamedArgs: named_args.len() as u32,
+    };
+
+    let mut result = VARIANT::default();
+    let iid_null = GUID::zeroed();
+    unsafe {
+        dispatch.Invoke(
+            dispid,
+            &iid_null,
+            0,
+            flags,
+            &params,
+            Some(&mut result),
+            None,
+            None,
+        )?;
+    }
+    Ok(result)
+}
+
+fn invoke_method(
+    dispatch: &IDispatch,
+    dispid: i32,
+    args: &mut [VARIANT],
+) -> windows::core::Result<VARIANT> {
+    let mut named_args = [];
+    invoke(dispatch, dispid, DISPATCH_METHOD, args, &mut named_args)
+}
+
+fn invoke_property_get(dispatch: &IDispatch, dispid: i32) -> windows::core::Result<VARIANT> {
+    let mut args = [];
+    let mut named_args = [];
+    invoke(
+        dispatch,
+        dispid,
+        DISPATCH_PROPERTYGET,
+        &mut args,
+        &mut named_args,
+    )
+}
+
+fn invoke_property_put(
+    dispatch: &IDispatch,
+    dispid: i32,
+    value: VARIANT,
+) -> windows::core::Result<()> {
+    let mut args = [value];
+    let mut named_args = [DISPID_PROPERTYPUT];
+    let result = invoke(
+        dispatch,
+        dispid,
+        DISPATCH_PROPERTYPUT,
+        &mut args,
+        &mut named_args,
+    );
+    clear_variants(&mut args);
+    let mut result = result?;
+    let _result_guard = VariantGuard(&mut result);
+    Ok(())
+}
+
+fn take_dispatch(variant: &mut VARIANT) -> crate::Result<IDispatch> {
+    unsafe {
+        let inner = &mut *variant.Anonymous.Anonymous;
+        if inner.vt != VT_DISPATCH {
+            return Err(Excel2PdfError::ConversionFailed(
+                "expected COM dispatch result".into(),
+            ));
+        }
+
+        let dispatch = ManuallyDrop::into_inner(std::ptr::read(&inner.Anonymous.pdispVal))
+            .ok_or_else(|| {
+                Excel2PdfError::ConversionFailed("Excel returned a null dispatch pointer".into())
+            })?;
+        inner.vt = VT_EMPTY;
+        Ok(dispatch)
+    }
+}
+
+fn into_dispatch(mut variant: VARIANT) -> crate::Result<IDispatch> {
+    let result = take_dispatch(&mut variant);
+    clear_variant(&mut variant);
+    result
+}
+
+fn close_workbook(workbook: &IDispatch) -> windows::core::Result<()> {
+    let dispid = get_dispatch_id(workbook, "Close")?;
+    let mut args = [variant_bool(false)];
+    let result = invoke_method(workbook, dispid, &mut args);
+    clear_variants(&mut args);
+    let mut result = result?;
+    let _result_guard = VariantGuard(&mut result);
+    Ok(())
+}
+
+fn quit_application(application: &IDispatch) -> windows::core::Result<()> {
+    let dispid = get_dispatch_id(application, "Quit")?;
+    let mut args = [];
+    let mut result = invoke_method(application, dispid, &mut args)?;
+    let _result_guard = VariantGuard(&mut result);
+    Ok(())
+}
 
 /// Opens a registry subkey for reading. Returns `None` if the key does not exist.
 fn open_key(parent: HKEY, subkey: &str) -> Option<HKEY> {
@@ -174,12 +408,70 @@ pub fn is_excel_installed() -> Result<bool, String> {
 }
 
 /// Converts an Excel file to PDF using Microsoft Excel via COM automation.
-pub fn convert_with_excel(_excel_path: &Path) -> crate::Result<PathBuf> {
-    // Excel COM automation is not yet fully implemented in the Rust port.
-    // Install LibreOffice for Excel-to-PDF conversion on Windows.
-    Err(Excel2PdfError::ConversionFailed(
-        "Excel COM automation is not yet implemented; \
-         please install LibreOffice for Excel-to-PDF conversion on Windows"
-            .into(),
-    ))
+pub fn convert_with_excel(excel_path: &Path) -> crate::Result<PathBuf> {
+    let excel_path = excel_path.canonicalize()?;
+    let pdf_path = excel_path.with_extension("pdf");
+
+    unsafe {
+        CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+            .ok()
+            .map_err(map_windows_error)?;
+    }
+    let _com_guard = ComGuard;
+
+    let application: IDispatch =
+        unsafe { CoCreateInstance(&EXCEL_APPLICATION_CLSID, None, CLSCTX_LOCAL_SERVER) }
+            .map_err(map_windows_error)?;
+
+    let mut excel = ExcelGuard {
+        application: Some(application),
+        workbook: None,
+    };
+
+    let application = excel.application.as_ref().unwrap();
+
+    let display_alerts_id =
+        get_dispatch_id(application, "DisplayAlerts").map_err(map_windows_error)?;
+    invoke_property_put(application, display_alerts_id, variant_bool(false))
+        .map_err(map_windows_error)?;
+
+    let workbooks_id = get_dispatch_id(application, "Workbooks").map_err(map_windows_error)?;
+    let workbooks =
+        into_dispatch(invoke_property_get(application, workbooks_id).map_err(map_windows_error)?)?;
+
+    let open_id = get_dispatch_id(&workbooks, "Open").map_err(map_windows_error)?;
+    let mut open_args = [variant_path(&excel_path)];
+    let workbook_variant = invoke_method(&workbooks, open_id, &mut open_args);
+    clear_variants(&mut open_args);
+    let workbook = into_dispatch(workbook_variant.map_err(map_windows_error)?)?;
+    excel.workbook = Some(workbook);
+
+    let workbook = excel.workbook.as_ref().unwrap();
+    let export_id = get_dispatch_id(workbook, "ExportAsFixedFormat").map_err(map_windows_error)?;
+    let mut export_args = [
+        variant_bool(false),
+        variant_bool(false),
+        variant_bool(true),
+        variant_i4(XL_QUALITY_STANDARD),
+        variant_path(&pdf_path),
+        variant_i4(XL_TYPE_PDF),
+    ];
+    let export_result = invoke_method(workbook, export_id, &mut export_args);
+    clear_variants(&mut export_args);
+    let mut export_result = export_result.map_err(map_windows_error)?;
+    let _export_result_guard = VariantGuard(&mut export_result);
+
+    close_workbook(workbook).map_err(map_windows_error)?;
+    excel.workbook = None;
+
+    quit_application(application).map_err(map_windows_error)?;
+    excel.application = None;
+
+    if !pdf_path.exists() {
+        return Err(Excel2PdfError::ConversionFailed(
+            "PDF was not created".into(),
+        ));
+    }
+
+    Ok(pdf_path)
 }
