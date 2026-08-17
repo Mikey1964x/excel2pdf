@@ -20,8 +20,8 @@ pub fn find_libreoffice_in_registry() -> Result<Option<PathBuf>, String> {
         let mut hkey = HKEY::default();
         unsafe {
             RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).ok()?;
+            Some(hkey)
         }
-        Some(hkey)
     }
 
     fn read_path(hkey: HKEY) -> Option<String> {
@@ -130,8 +130,8 @@ pub fn is_excel_installed() -> Result<bool, String> {
         let mut hkey = HKEY::default();
         unsafe {
             RegOpenKeyExW(parent, PCWSTR(wide.as_ptr()), 0, KEY_READ, &mut hkey).ok()?;
+            Some(hkey)
         }
-        Some(hkey)
     }
 
     fn enum_subkeys(hkey: HKEY) -> Vec<String> {
